@@ -1,5 +1,8 @@
+#include <stdio.h>
+
 const int WAIT_FOR_PACKET_TIMEOUT = 3;
 const int NUMBER_OF_FAILURES = 7;
+int timeoutExpiredCount = 0;
 do
 {
 	do
@@ -32,7 +35,7 @@ do
 			}
 		if (...) // TODO: The incoming block number is not what we have
 				 // expected, i.e. this is a DATA pkt but the block number
-				 // in DATA was wrong (not last ACK’s block number + 1)
+				 // in DATA was wrong (not last ACKâ€™s block number + 1)
 		{
 			// FATAL ERROR BAIL OUT
 		}
