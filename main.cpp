@@ -5,10 +5,19 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys / time.h>
 
 #include <netinet/in.h>
 
+// Constants
+const int WAIT_FOR_PACKET_TIMEOUT = 3;
+const int NUMBER_OF_FAILURES = 7;
+const int MAX_BUFF_SIZE = 516;
+const int OPCODE_SIZE = 2;
+const char* USAGE = "USAGE: ./ttftps <port>/n";
+
 typedef struct sockaddr_in IPv4;
+typedef struct timeval time;
 
 struct ack_t {
 	short opcode;
@@ -16,13 +25,7 @@ struct ack_t {
 } __attribute__((packed));
 typedef struct ack_t Ack;
 
-// Constants
-const int WAIT_FOR_PACKET_TIMEOUT = 3;
-const int NUMBER_OF_FAILURES = 7;
 
-const int MAX_BUFF_SIZE = 516;
-const int OPCODE_SIZE = 2;
-const char* USAGE = "USAGE: ./ttftps <port>/n";
 
 int main(int argc, char* argv[])
 {
@@ -30,14 +33,20 @@ int main(int argc, char* argv[])
 	int sock, port, messageLen, numOfBytesSent;
 	unsigned int clientAddrLen;
 	short givenOpcode;
+	short givenBlocknum;
 
 	char buffer[MAX_BUFF_SIZE];
 	char transMode[MAX_BUFF_SIZE];
 	char fileName[MAX_BUFF_SIZE];
+	char data[MAX_BUFF_SIZE];
+
+	int timeoutExpiredCount = 0;
+	int lastWriteSize = 0;
 
 	IPv4 myAddr, clientAddr;
 	FILE* fd;
 	Ack ack;
+	time timeout;
 	// Declarations - end
 
 	if (2 != argc){
@@ -57,6 +66,8 @@ int main(int argc, char* argv[])
 	myAddr.sin_family = AF_INET;
 	myAddr.sin_addr.s_addr = INADDR_ANY;
 	myAddr.sin_port = htons(port);
+
+	time.tv_sec = WAIT_FOR_PACKET_TIMEOUT;
 
 	// Bind socket to port
 	if (bind(sock, (struct sockaddr *)&myAddr, sizeof(myAddr)) < 0) {
@@ -102,13 +113,79 @@ int main(int argc, char* argv[])
 			exit(1);
 		}
 		printf("OUT:ACK, 0\n");
-
+		
 		// From here on everything should be configured OK
 		// you should be able to read using recvfrom(sock, ...), see line 72
 		// and write using sendto(sock, ...), see line 99
 		// note that from here on I didn't touch the code, except that
 		// I added default conditions to all IFs and WHILEs, so that the code will compile
 		// you obviously may change them as needed
+
+		do
+		{
+			do
+			{
+				do
+				{
+					// TODO: Wait WAIT_FOR_PACKET_TIMEOUT to see if something appears
+					// for us at the socket (we are waiting for DATA)
+					messageLen = recvfrom(sock, buffer, MAX_BUFF_SIZE, 0, (struct sockaddr *)&clientAddr, &clientAddrLen);
+					if (messageLen>0) //if there is something at the socket
+					{
+						// Read the DATA packet from the socket
+						memcpy(&givenOpcode, buffer, OPCODE_SIZE);
+						givenOpcode = ntohs(givenOpcode);
+						memcpy(&givenBlocknum, buffer + OPCODE_SIZE, OPCODE_SIZE);
+						givenBlocknum = ntohs(givenBlocknum);
+					}
+					if (false) // TODO: Time out expired while waiting for data
+							 // to appear at the socket
+					{
+						// Send another ACK for the last packet
+						numOfBytesSent = sendto(sock, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, sizeof(clientAddr));
+						if (numOfBytesSent != sizeof(ack)) {
+							perror("TTFTP_ERROR: An error occurred while sending ACK to client\n");
+							exit(1);
+						}
+						printf("OUT:ACK, %d\n", ack.blockNumber);
+						timeoutExpiredCount++;
+					}
+					if (timeoutExpiredCount >= NUMBER_OF_FAILURES)
+					{
+						printf("FLOW_ERROR: Number of missing packets exceeded limit\n");
+						exit(1);
+					}
+				} while (messageLen<0); // recvfrom failed to read the data
+				if (givenOpcode != 3) // We got something else but DATA
+				{
+					printf("FLOWERROR: Recieved packet does not contain data\n");
+					exit(1);
+				}
+				if (givenBlocknum != (ack.blockNumber + 1)) // Block number in DATA is wrong
+				{
+					printf("FLOWERROR: Block number error\n");
+					exit(1);
+				}
+				else
+				{
+					strcpy(data, buffer + 2 * OPCODE_SIZE);
+					ack.blockNumber++;
+					printf("OUT:ACK, %d\n", ack.blockNumber);
+					break;
+				}
+			} while (false);
+			timeoutExpiredCount = 0;
+			lastWriteSize = fwrite(buffer, sizeof(char), sizeof(buffer), fd); // write next bulk of data
+			//send ACK packet to the client
+			numOfBytesSent = sendto(sock, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, sizeof(clientAddr));
+			if (numOfBytesSent != sizeof(ack)) {
+				perror("TTFTP_ERROR: An error occurred while sending ACK to client\n");
+				exit(1);
+			}
+			printf("OUT:ACK, %d\n", ack.blockNumber);
+		} while (false); // TODO: Have blocks left to be read from client (not end of transmission)
+
+	} while (true);
 
 	close(sock);
 	return 0;
