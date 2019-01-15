@@ -19,7 +19,7 @@ typedef struct ack_t Ack;
 // Constants
 const int WAIT_FOR_PACKET_TIMEOUT = 3;
 const int NUMBER_OF_FAILURES = 7;
-int timeoutExpiredCount = 0;
+
 const int MAX_BUFF_SIZE = 516;
 const int OPCODE_SIZE = 2;
 const char* USAGE = "USAGE: ./ttftps <port>/n";
@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
 
 	do
 	{
-		// TCP handshake
+		// UDP handshake
 		// Wait for WRQ
 		clientAddrLen = sizeof(clientAddr);
 		messageLen = recvfrom(sock, buffer, MAX_BUFF_SIZE, 0, (struct sockaddr *)&clientAddr, &clientAddrLen);
@@ -109,50 +109,6 @@ int main(int argc, char* argv[])
 		// note that from here on I didn't touch the code, except that
 		// I added default conditions to all IFs and WHILEs, so that the code will compile
 		// you obviously may change them as needed
-
-		do
-		{
-			do
-			{
-				do
-				{
-					// TODO: Wait WAIT_FOR_PACKET_TIMEOUT to see if something appears
-					// for us at the socket (we are waiting for DATA)
-					if (false) // TODO: if there was something at the socket and
-						 // we are here not because of a timeout
-					{
-						// TODO: Read the DATA packet from the socket (at
-						// least we hope this is a DATA packet)
-					}
-					if (false) // TODO: Time out expired while waiting for data
-							 // to appear at the socket
-					{
-						//TODO: Send another ACK for the last packet
-						timeoutExpiredCount++;
-					}
-					if (timeoutExpiredCount >= NUMBER_OF_FAILURES)
-					{
-						// FATAL ERROR BAIL OUT
-					}
-				} while (false); // TODO: Continue while some socket was ready
-							  // but recvfrom somehow failed to read the data
-					if (false) // TODO: We got something else but DATA
-					{
-						// FATAL ERROR BAIL OUT
-					}
-				if (false) // TODO: The incoming block number is not what we have
-						 // expected, i.e. this is a DATA pkt but the block number
-						 // in DATA was wrong (not last ACK’s block number + 1)
-				{
-					// FATAL ERROR BAIL OUT
-				}
-			} while (false);
-			timeoutExpiredCount = 0;
-			// lastWriteSize = fwrite(...); // write next bulk of data
-										 // TODO: send ACK packet to the client
-		} while (false); // Have blocks left to be read from client (not end of transmission)
-
-	} while (true);
 
 	close(sock);
 	return 0;
