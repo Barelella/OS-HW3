@@ -5,7 +5,8 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys / time.h>
+#include <sys/time.h>
+#include <sys/select.h>
 
 #include <netinet/in.h>
 
@@ -42,13 +43,22 @@ int main(int argc, char* argv[])
 
 	int timeoutExpiredCount = 0;
 	int lastWriteSize = 0;
+	int select;
+	int nfds;
 
 	IPv4 myAddr, clientAddr;
 	FILE* fd;
 	Ack ack;
 	time timeout;
+	
 	// Declarations - end
-
+	
+	//select varables init.
+	fd_set set;
+	FD_CLR(fd, &set);
+	FD_ISSET(fd, &set);
+	FD_SET(fd, &set);
+	
 	if (2 != argc){
 		printf(USAGE);
 		return 1;
@@ -129,6 +139,7 @@ int main(int argc, char* argv[])
 				{
 					// TODO: Wait WAIT_FOR_PACKET_TIMEOUT to see if something appears
 					// for us at the socket (we are waiting for DATA)
+					select = select(nfds, set, NULL, NULL, timeout, NULL);
 					messageLen = recvfrom(sock, buffer, MAX_BUFF_SIZE, 0, (struct sockaddr *)&clientAddr, &clientAddrLen);
 					if (messageLen>0) //if there is something at the socket
 					{
@@ -138,7 +149,7 @@ int main(int argc, char* argv[])
 						memcpy(&givenBlocknum, buffer + OPCODE_SIZE, OPCODE_SIZE);
 						givenBlocknum = ntohs(givenBlocknum);
 					}
-					if (false) // TODO: Time out expired while waiting for data
+					if (messageLen=0) // TODO: Time out expired while waiting for data
 							 // to appear at the socket
 					{
 						// Send another ACK for the last packet
