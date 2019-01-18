@@ -88,7 +88,7 @@ void portListen(int sock, IPv4* clientAddr){
             {
                 // Wait WAIT_FOR_PACKET_TIMEOUT to see if something appears
                 // for us at the socket (we are waiting for DATA)
-                messageLen = (int)recvfrom(sock, buffer, MAX_BUFF_SIZE, 0, (struct sockaddr *)&clientAddr, &clientAddrLen);
+                messageLen = (int)recvfrom(sock, buffer, MAX_BUFF_SIZE, 0, (struct sockaddr *)&clientAddr, &clientAddrLen);//TODO: recvfrom turns sock to 0
                 if (s>0 && messageLen > 0) //if there is something at the socket
                 {
                     // Read the DATA packet from the socket
