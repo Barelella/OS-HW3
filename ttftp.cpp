@@ -9,6 +9,11 @@ struct ack_t {
     short blockNumber;
 } __attribute__((packed));
 
+struct data_t {
+    short opcode;
+    short blockNumber;
+    char data[MAX_DATA_SIZE];
+} __attribute__((packed));
 
 void portListen(int sock, IPv4* clientAddr){
     // Declarations
@@ -19,15 +24,14 @@ void portListen(int sock, IPv4* clientAddr){
     char buffer[MAX_BUFF_SIZE];
     char transMode[MAX_BUFF_SIZE];
     char fileName[MAX_BUFF_SIZE];
-    char data[MAX_BUFF_SIZE];
 
     int timeoutExpiredCount = 0;
     int lastWriteSize = 0;
-    int nfds = sock+1;
-    int s;
+    int select_val;
 
     FILE* fd;
     Ack ack;
+    Data data_s;
     time timeout;
 
     //select varables init.
@@ -40,6 +44,7 @@ void portListen(int sock, IPv4* clientAddr){
     // Wait for WRQ
 
     clientAddrLen = sizeof(clientAddr);
+
     messageLen = (int)recvfrom(sock, buffer, MAX_BUFF_SIZE, 0, (struct sockaddr *)&clientAddr, &clientAddrLen);
     if (messageLen < 0) {
         perror("TTFTP_ERROR: Error reading from socket\n");
@@ -82,7 +87,6 @@ void portListen(int sock, IPv4* clientAddr){
 
     do
     {
-
         do
         {
             // Wait WAIT_FOR_PACKET_TIMEOUT to see if something appears
@@ -91,14 +95,16 @@ void portListen(int sock, IPv4* clientAddr){
             FD_SET(sock,&set);
             timeout.tv_sec = WAIT_FOR_PACKET_TIMEOUT;
             timeout.tv_usec = 0;
+
             printf("starting select\n");//debug print
-            s = select(nfds, &set, NULL, NULL, &timeout);
-            printf("finished select:%d\n", s);//debug print
-            if(s==-1){
+            select_val = select(sock+1, &set, NULL, NULL, &timeout);
+            printf("finished select:%d\n", select_val);//debug print
+
+            if(select_val==-1){
                 perror("TTFTP_ERROR: An error occurred while waiting for data\n");
                 return;
             }
-            else if(s==0){// Time out expired while waiting for data
+            else if(select_val==0){// Time out expired while waiting for data
                 // to appear at the socket
 
                 // Send another ACK for the last packet
@@ -109,6 +115,7 @@ void portListen(int sock, IPv4* clientAddr){
                 }
                 printf("OUT:ACK, %d\n", ack.blockNumber);
                 timeoutExpiredCount++;
+
                 if (timeoutExpiredCount >= NUMBER_OF_FAILURES)
                 {
                     printf("FLOW_ERROR: Number of missing packets exceeded limit\n");
@@ -117,22 +124,23 @@ void portListen(int sock, IPv4* clientAddr){
                 }
             }
             else{ //there is something at the socket
-                do
-                {
-                    messageLen = (int)recvfrom(sock, buffer, sizeof(*buffer), 0, (struct sockaddr *)&clientAddr, &clientAddrLen);//TODO: recvfrom turns sock to 0
-                }while (messageLen<0); // recvfrom failed to read the data
+                printf("socket number before recvfrom:%d\n", sock);//debug print
+                messageLen = (int)recvfrom(sock, &data_s, sizeof(data_s), 0, (struct sockaddr *)&clientAddr, &clientAddrLen);//TODO: recvfrom turns sock to 0
+                printf("socket number after recvfrom:%d\n", sock);//debug print
                 printf("messageLen: %d\n", (int)strlen(buffer));//debug print
-                if(strlen(buffer)==0){
-                s=0;
+                if(messageLen<0){
+                    perror("ERROR:");
+                    return;
+                }
+                if(strlen(data_s.data)==0){
+                select_val=0;
                 }
             }
-        } while (s<=0);//data hasn't arrived yet
+        } while (select_val<=0);//data hasn't arrived yet
         // Read the DATA packet from the socket
-        memcpy(&givenOpcode, buffer, OPCODE_SIZE);
-        givenOpcode = (short)ntohs(givenOpcode);
+        givenOpcode = (short)ntohs(data_s.opcode);
         printf("opcode:%d\n",givenOpcode);//debug print
-        memcpy(&givenBlocknum, buffer + OPCODE_SIZE, OPCODE_SIZE);
-        givenBlocknum = (short)ntohs(givenBlocknum);
+        givenBlocknum = (short)ntohs(data_s.blockNumber);
         printf("block number:%d\n",givenBlocknum);//debug print
         if (givenOpcode != 3) // We got something else but DATA
         {
@@ -148,18 +156,18 @@ void portListen(int sock, IPv4* clientAddr){
         }
         else
         {
-            strcpy(data, buffer + 2 * OPCODE_SIZE);
+            printf("IN:DATA\n");
             ack.blockNumber++;
             printf("OUT:ACK, %d\n", ack.blockNumber);
         }
-        printf("IN:DATA");
         timeoutExpiredCount = 0;
-        lastWriteSize = (int)fwrite(buffer, sizeof(char), sizeof(buffer), fd); // write next bulk of data
+        lastWriteSize = (int)fwrite(data_s.data, sizeof(char), sizeof(data_s), fd); // write next bulk of data
+        printf("%s",data_s.data);
         if(lastWriteSize==0){
             perror("TTFTP_ERROR: An error occurred while writing data\n");
             return;
         }
-        printf("WRITING: %d\n", (int)strlen(buffer));
+        printf("WRITING: %d\n", (int)strlen(data_s.data));
         //send ACK packet to the client
         numOfBytesSent = sendto(sock, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, sizeof(*clientAddr));
         if (numOfBytesSent != sizeof(ack)) {
@@ -167,6 +175,6 @@ void portListen(int sock, IPv4* clientAddr){
             return;
         }
         printf("OUT:ACK, %d\n", ack.blockNumber);
-    } while (strlen(buffer)>=512); // TODO: Have blocks left to be read from client (not end of transmission)
+    } while (messageLen>0); // TODO: Have blocks left to be read from client (not end of transmission)
     printf("RECVOK");
 }

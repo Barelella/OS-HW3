@@ -23,11 +23,13 @@
 const int WAIT_FOR_PACKET_TIMEOUT = 3;
 const int NUMBER_OF_FAILURES = 7;
 const int MAX_BUFF_SIZE = 516;
+const int MAX_DATA_SIZE = 512;
 const int OPCODE_SIZE = 2;
 
 typedef struct sockaddr_in IPv4;
 typedef struct timeval time;
 typedef struct ack_t Ack;
+typedef struct data_t Data;
 
 void portListen(int sock, IPv4* clientAddr);
 

@@ -8,11 +8,11 @@ int main(int argc, char* argv[])
 	int sock, port;
 
 	IPv4 myAddr, clientAddr;
-	
+
 	// Declarations - end
-	
+
 	if (2 != argc){
-		printf(USAGE);
+		printf("USAGE: ./ttftps <port>\n");
 		return 1;
 	}
 
@@ -26,9 +26,13 @@ int main(int argc, char* argv[])
 	port = atoi(argv[1]);
 	memset(&myAddr, 0x0, sizeof(myAddr));
 	myAddr.sin_family = AF_INET;
-	myAddr.sin_addr.s_addr = INADDR_ANY;
+	myAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	myAddr.sin_port = htons(port);
 
+    memset(&clientAddr, 0x0, sizeof(clientAddr));
+	clientAddr.sin_family = AF_INET;
+	clientAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	clientAddr.sin_port = htons(port);
 	// Bind socket to port
 	if (bind(sock, (struct sockaddr *)&myAddr, sizeof(myAddr)) < 0) {
 		perror("TTFTP_ERROR: Could not bind socket\n");
