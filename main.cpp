@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
 
 	do
 	{
-        portListen(sock, &clientAddr);//added function so when a system error occures we can go back to
+        portListen(sock, clientAddr);//added function so when a system error occures we can go back to
                            // listen to the port;
 	} while (true);
 

@@ -31,6 +31,6 @@ typedef struct timeval time;
 typedef struct ack_t Ack;
 typedef struct data_t Data;
 
-void portListen(int sock, IPv4* clientAddr);
+void portListen(int sock, IPv4& clientAddr);
 
 #endif //OS_HW3_TTFTP_H
