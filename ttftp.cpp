@@ -15,6 +15,12 @@ struct data_t {
     char data[MAX_DATA_SIZE];
 } __attribute__((packed));
 
+/**************************************/
+// Function name: portListen
+// Description: Listens to port and gets packets
+// Variables: socket file descriptor, client ip address
+// Return value: none
+/**************************************/
 void portListen(int sock, IPv4& clientAddr){
     // Declarations
     unsigned int clientAddrLen;
